@@ -1,0 +1,14 @@
+{
+  "songs": [
+    {
+      "id": "1",
+      "title": "샘플 곡 1",
+      "video_path": "C:/Joayong/videos/song1.mp4"
+    },
+    {
+      "id": "2",
+      "title": "샘플 곡 2",
+      "video_path": "C:/Joayong/videos/song2.mp4"
+    }
+  ]
+}
