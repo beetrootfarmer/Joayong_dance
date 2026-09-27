@@ -46,8 +46,16 @@ export class DwellTracker {
   private progress = 0; // 0~1
   private charging = false;
   private startedAt = 0;
+  // 완료 직후에는 잠금. 손을 완전히 뗐다가(EXIT_THRESHOLD 아래) 다시 올려야
+  // 재시작 가능 — 손을 계속 얹고 있다고 같은 버튼이 반복 완료되는 것을 막음.
+  private armed = true;
 
   tick(ratio: number, now: number): { progress: number; completed: boolean } {
+    if (!this.armed) {
+      if (ratio < EXIT_THRESHOLD) this.armed = true;
+      return { progress: 0, completed: false };
+    }
+
     if (!this.charging && ratio >= ENTER_THRESHOLD) {
       this.charging = true;
       this.startedAt = now;
@@ -64,6 +72,7 @@ export class DwellTracker {
     if (completed) {
       this.charging = false;
       this.progress = 0;
+      this.armed = false;
     }
 
     return { progress: this.progress, completed };

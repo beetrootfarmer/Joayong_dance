@@ -129,7 +129,9 @@ export default function GestureSelectPage() {
         ctx.fillText(btn.label, rect.x + 12, rect.y + 40);
 
         if (completed) {
-          trackersRef.current.clear();
+          // 완료된 트래커는 지우지 않습니다 — 지우면 새 트래커(armed=true)가 다시
+          // 생겨서 손을 떼지 않아도 즉시 재충전을 시작해버립니다. 손을 뗄 때까지
+          // 잠그는 건 DwellTracker 내부의 armed 플래그가 담당합니다.
           lastProgressAtRef.current = now;
           if (modeRef.current === "songs") {
             postCommand("select_song", btn.id);
