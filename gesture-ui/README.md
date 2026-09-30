@@ -13,6 +13,10 @@ npm run dev
 
 `http://localhost:3000` 을 OBS Browser Source URL로 등록하거나, 키오스크 모드 브라우저로 엽니다.
 
+설치 후 버튼 영역을 비운 상태에서 **`Shift+C`** 로 그린스크린 판정을 보정하세요 (`Shift+D`: 기본값 복귀).
+OBS Browser Source라면 소스 우클릭 → 상호작용 창에서 입력합니다. 자세한 내용은
+[`docs/gesture-detection.md`](../docs/gesture-detection.md) 3장.
+
 ## 구조
 
 - `app/page.tsx` — 카메라 프리뷰(좌우 반전) + 버튼 dwell 판정 + 진행률 표시
@@ -27,4 +31,4 @@ npm run dev
 - 버튼 좌표(`x/y/w/h`)는 임시값 — 현장 화면 크기·거리 기준으로 재조정 필요
 - OBS Browser Source에서 `getUserMedia` 동작 여부 미검증 (기술검증 단계 §7-1)
 - 다인원 프레임 처리(대표 1인 안내)는 UI가 아니라 운영 절차(바닥 표시)로 해결하는 것을 전제로 함
-- 그린 판정 HSV 범위(`DEFAULT_GREEN_RANGE`)는 임시값 — 현장 조명에서 재튜닝하거나 `calibrateGreenRange()`를 보정 UI에 연결
+- 그린 판정 보정 단축키(`Shift+C` 보정 / `Shift+D` 초기화)가 OBS Browser Source 상호작용 창에서 동작하는지 미검증

@@ -80,19 +80,22 @@ export function sampleForegroundRatio(
   return total === 0 ? 0 : foreground / total;
 }
 
+const CALIBRATION_MIN_GREEN = 0.9;
+
 /**
  * 설치 시 보정용: 버튼 영역이 비어 있는(그린스크린만 보이는) 상태에서 호출해
  * 현장 그린스크린 색에 맞는 HSV 범위를 만든다.
  * 색상은 평균 ± 3σ(최소 ±20도), 채도·밝기 하한은 관측 하위 2% 값에 여유를 둔다.
- * 아직 page.tsx에 연결하지 않음 — 보정 UI(운영자 단축키 등)와 함께 붙일 예정.
+ * 영역에 사람이 들어와 있으면(기본 범위 기준 그린 비율 < 90%) 잘못된 범위가 나오므로 null.
  */
 export function calibrateGreenRange(
   ctx: CanvasRenderingContext2D,
   rects: { x: number; y: number; w: number; h: number }[]
-): GreenRange {
+): GreenRange | null {
   const hs: number[] = [];
   const ss: number[] = [];
   const vs: number[] = [];
+  let greenByDefault = 0;
 
   for (const rect of rects) {
     const { data } = ctx.getImageData(rect.x, rect.y, rect.w, rect.h);
@@ -101,10 +104,11 @@ export function calibrateGreenRange(
       hs.push(h);
       ss.push(s);
       vs.push(v);
+      if (isGreenPixel(data[i], data[i + 1], data[i + 2], DEFAULT_GREEN_RANGE)) greenByDefault++;
     }
   }
 
-  if (hs.length === 0) return DEFAULT_GREEN_RANGE;
+  if (hs.length === 0 || greenByDefault / hs.length < CALIBRATION_MIN_GREEN) return null;
 
   const mean = hs.reduce((a, b) => a + b, 0) / hs.length;
   const std = Math.sqrt(hs.reduce((a, b) => a + (b - mean) ** 2, 0) / hs.length);
