@@ -2,6 +2,29 @@
 
 기획안: [`docs/기획안_v2.md`](docs/기획안_v2.md) (v1은 `조아용_크로마키_체험_기획안.pdf`)
 
+## 프로젝트 소개
+
+선택한 곡의 조아용 댄스 영상에 그린스크린 앞 참여자를 크로마키로 합성해 유튜브로 실시간 송출하는 체험 부스의 제어 시스템.
+
+- 초기 설계(Node.js 제어 서버 + obs-websocket)를 검토하다가, 소켓 때문에 재연결·상태 재동기화 문제가 추가로
+  생긴다는 점을 확인하고 OBS 내장 Python 스크립트(obspython)로 전환. 상태머신·씬 전환·미디어 교체·재생 종료
+  감지를 OBS 프로세스 안에서 함수 호출로 처리
+- 곡 선택 화면(Next.js, OBS Browser Source)은 상태 없이 선택 확정 이벤트만 로컬 파일로 넘기도록 해, 이 서버가
+  죽어도 진행 상태·카운트다운·로그에는 영향이 없고 운영자 단축키로 바로 우회할 수 있게 설계
+- 웹캠 기반 제스처(dwell) 판정으로 참여자가 직접 곡을 선택하고 시작 — 그린스크린 HSV 판정으로 전경 비율 계산
+  (판정 방식: [`docs/gesture-detection.md`](docs/gesture-detection.md))
+- 모든 구성 요소를 송출 PC 한 대의 localhost에 두어 네트워크 장애의 영향을 유튜브 업로드 구간으로 한정
+
+## 기술 스택
+
+| 영역 | 사용 기술 | 비고 |
+|---|---|---|
+| 합성·송출 | OBS Studio (크로마키 필터, Browser Source, 유튜브 라이브) | |
+| 제어 로직 | Python (obspython, OBS 내장 스크립팅) | 상태머신·씬 전환·로그. 소켓/obs-websocket 미사용 |
+| 곡선택·제스처 UI | Next.js 15, React 19, TypeScript | 상태 없는 서버, 선택 확정 API 1개 |
+| 제스처 판정 | Canvas `getImageData` + HSV 그린 판정, dwell·히스테리시스 | 제스처 전용 USB 웹캠 |
+| 구성 요소 간 통신 | 로컬 파일(`runtime/command.json`) + OBS 타이머 폴링 | 소켓 아님 |
+
 ## 구조
 
 ```
