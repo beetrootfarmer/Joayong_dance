@@ -51,7 +51,8 @@ session = {
     "song_id": None,
     "song_started_at": None,
     "countdown_remaining": 0,
-    "last_command_seq": -1,
+    # None = 스크립트 (재)로드 직후 아직 기준을 잡지 않음 (poll_command 참고)
+    "last_command_seq": None,
 }
 
 songs_by_id = {}
@@ -68,7 +69,7 @@ def load_songs():
         log_event("error", {"msg": "songs.json not found", "path": path})
         return
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8-sig") as f:
         data = json.load(f)
 
     for song in data.get("songs", []):
@@ -231,19 +232,28 @@ def return_to_idle_once():
 # command.json 폴링 — gesture-ui(Next.js)가 남긴 이벤트를 단축키와 동일하게 처리
 # ---------------------------------------------------------------------------
 
-def poll_command():
+def read_command():
     path = CFG["command_path"]
     if not path or not os.path.isfile(path):
-        return
-
+        return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            cmd = json.load(f)
+        # utf-8-sig: Windows 메모장/PowerShell이 붙이는 BOM도 허용
+        with open(path, "r", encoding="utf-8-sig") as f:
+            return json.load(f)
     except (OSError, json.JSONDecodeError):
-        return
+        return None
 
-    seq = cmd.get("seq", -1)
-    if seq == session["last_command_seq"]:
+
+def poll_command():
+    cmd = read_command()
+    seq = cmd.get("seq", -1) if cmd else -1
+
+    if session["last_command_seq"] is None:
+        # (재)로드 직후 첫 폴링: 이전 실행에서 남은 명령을 다시 실행하지 않도록 기준만 잡음.
+        # 파일이 없으면 기준은 -1 — 나중에 처음 생기는 명령은 정상 실행됨
+        session["last_command_seq"] = seq
+        return
+    if cmd is None or seq == session["last_command_seq"]:
         return
     session["last_command_seq"] = seq
 
@@ -260,9 +270,13 @@ def poll_command():
 # 단축키 등록
 # ---------------------------------------------------------------------------
 
-def register_hotkey(name, description, callback):
+def register_hotkey(name, description, callback, settings):
     hotkey_id = obs.obs_hotkey_register_frontend(name, description, callback)
     hotkey_ids[name] = hotkey_id
+    # 스크립트 설정에 저장해둔 키 매핑 복원 — 없으면 재로드/OBS 재시작 시 매핑이 풀림
+    saved = obs.obs_data_get_array(settings, name)
+    obs.obs_hotkey_load(hotkey_id, saved)
+    obs.obs_data_array_release(saved)
 
 
 def hotkey_callback(action_fn):
@@ -272,11 +286,11 @@ def hotkey_callback(action_fn):
     return _cb
 
 
-def register_all_hotkeys():
-    register_hotkey("joayong.start", "조아용: 시작", hotkey_callback(action_start))
-    register_hotkey("joayong.force_stop", "조아용: 강제 정지", hotkey_callback(action_force_stop))
-    register_hotkey("joayong.force_idle", "조아용: 대기 화면 전환", hotkey_callback(action_force_idle))
-    register_hotkey("joayong.reset", "조아용: 세션 초기화", hotkey_callback(action_reset_session))
+def register_all_hotkeys(settings):
+    register_hotkey("joayong.start", "조아용: 시작", hotkey_callback(action_start), settings)
+    register_hotkey("joayong.force_stop", "조아용: 강제 정지", hotkey_callback(action_force_stop), settings)
+    register_hotkey("joayong.force_idle", "조아용: 대기 화면 전환", hotkey_callback(action_force_idle), settings)
+    register_hotkey("joayong.reset", "조아용: 세션 초기화", hotkey_callback(action_reset_session), settings)
 
     # 곡 선택 단축키 1~9. 실제 운영 시 OBS Settings > Hotkeys 에서 숫자 키에 매핑.
     for i in range(1, 10):
@@ -285,6 +299,7 @@ def register_all_hotkeys():
             f"joayong.select_song_{song_id}",
             f"조아용: 곡 {song_id} 선택",
             hotkey_callback(lambda sid=song_id: action_select_song(sid)),
+            settings,
         )
 
 
@@ -323,8 +338,17 @@ def script_update(settings):
     load_songs()
 
 
+def script_save(settings):
+    for name, hotkey_id in hotkey_ids.items():
+        arr = obs.obs_hotkey_save(hotkey_id)
+        obs.obs_data_set_array(settings, name, arr)
+        obs.obs_data_array_release(arr)
+
+
 def script_load(settings):
-    register_all_hotkeys()
+    register_all_hotkeys(settings)
+    # 이전 실행에서 텍스트 소스에 남은 문구(예: 제거된 "동의 대기/완료") 정리
+    set_text(CFG["source_text_status"], "")
     obs.timer_add(poll_command, COMMAND_POLL_INTERVAL_MS)
 
     media_source = obs.obs_get_source_by_name(CFG["source_media"])

@@ -45,6 +45,11 @@ OBS 프로세스 안에서 `obs-script`가 상태·씬전환·로그를 전부 �
 
 ## 시작하기
 
+**새 PC(Windows)에 처음 세팅한다면 [`docs/setup-new-machine.md`](docs/setup-new-machine.md)를 순서대로 따라하세요.**
+영상 배치, `command.json` 생성, OBS 씬·스크립트·단축키, 보정, 테스트 체크리스트까지 포함되어 있습니다.
+
+이미 세팅된 PC에서 다시 띄울 때:
+
 ```bash
 # 1. OBS 쪽
 #    obs-script/README.md 참고 — OBS Scripts 패널에 joayong_control.py 로드
