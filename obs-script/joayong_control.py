@@ -4,7 +4,9 @@
 OBS의 Tools > Scripts 패널에 이 파일을 직접 로드해서 사용합니다.
 별도 프로세스나 소켓 없이, obspython을 통해 OBS 프로세스 내부에서 직접 동작합니다.
 
-상태 흐름: idle -> consent_ok -> song_ready -> countdown -> playing -> ended -> idle
+상태 흐름: idle -> song_ready -> countdown -> playing -> ended -> idle
+
+초상권 송출 동의는 입장 시 스태프가 종이/태블릿으로 받으며, 프로그램에서는 동의 상태를 관리하지 않습니다.
 """
 
 import json
@@ -35,7 +37,6 @@ COMMAND_POLL_INTERVAL_MS = 200
 STATUS_TICK_INTERVAL_MS = 1000
 
 STATE_IDLE = "idle"
-STATE_CONSENT_OK = "consent_ok"
 STATE_SONG_READY = "song_ready"
 STATE_COUNTDOWN = "countdown"
 STATE_PLAYING = "playing"
@@ -47,7 +48,6 @@ STATE_ENDED = "ended"
 
 session = {
     "state": STATE_IDLE,
-    "consent": False,
     "song_id": None,
     "song_started_at": None,
     "countdown_remaining": 0,
@@ -147,16 +147,10 @@ def restart_media(source_name):
 # 상태 전이 액션 (제스처와 단축키가 동일하게 호출하는 지점)
 # ---------------------------------------------------------------------------
 
-def action_toggle_consent():
-    session["consent"] = not session["consent"]
-    session["state"] = STATE_CONSENT_OK if session["consent"] else STATE_IDLE
-    log_event("consent", {"consent": session["consent"]})
-    set_text(CFG["source_text_status"], "동의 완료" if session["consent"] else "동의 대기")
-
-
 def action_select_song(song_id):
-    if not session["consent"]:
-        log_event("blocked", {"msg": "song select without consent", "song_id": song_id})
+    # 대기 또는 곡 재선택 상태에서만 허용 — 카운트다운·재생 중 영상이 바뀌지 않도록
+    if session["state"] not in (STATE_IDLE, STATE_SONG_READY):
+        log_event("blocked", {"msg": "song select during session", "state": session["state"], "song_id": song_id})
         return
     song = songs_by_id.get(str(song_id))
     if song is None:
@@ -207,6 +201,7 @@ def action_force_idle():
     set_scene(CFG["scene_idle"])
     set_text(CFG["source_text_title"], "")
     set_text(CFG["source_text_countdown"], "")
+    set_text(CFG["source_text_status"], "")
     try:
         obs.timer_remove(countdown_tick)
     except Exception:
@@ -214,7 +209,6 @@ def action_force_idle():
 
 
 def action_reset_session():
-    session["consent"] = False
     action_force_idle()
     log_event("session_reset", {})
 
@@ -279,7 +273,6 @@ def hotkey_callback(action_fn):
 
 
 def register_all_hotkeys():
-    register_hotkey("joayong.consent", "조아용: 동의 전환", hotkey_callback(action_toggle_consent))
     register_hotkey("joayong.start", "조아용: 시작", hotkey_callback(action_start))
     register_hotkey("joayong.force_stop", "조아용: 강제 정지", hotkey_callback(action_force_stop))
     register_hotkey("joayong.force_idle", "조아용: 대기 화면 전환", hotkey_callback(action_force_idle))
