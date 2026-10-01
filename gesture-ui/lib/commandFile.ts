@@ -8,3 +8,11 @@ export function commandFilePath(): string {
     path.resolve(process.cwd(), "../runtime/command.json")
   );
 }
+
+// 곡 목록은 obs-script/songs.json 하나만 원본으로 둠 (UI는 읽기만 함).
+export function songsFilePath(): string {
+  return (
+    process.env.SONGS_FILE_PATH ??
+    path.resolve(process.cwd(), "../obs-script/songs.json")
+  );
+}

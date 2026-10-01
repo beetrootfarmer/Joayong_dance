@@ -177,6 +177,13 @@ def action_start():
     log_event("countdown_start", {"song_id": session["song_id"]})
 
 
+def action_play_song(song_id):
+    # 제스처 UI용: 곡 선택이 확정되면 시작 단계 없이 바로 카운트다운 → 재생.
+    # 선택이 막히면(세션 진행 중·없는 곡) song_ready가 안 되므로 action_start도 막힘.
+    action_select_song(song_id)
+    action_start()
+
+
 def countdown_tick():
     session["countdown_remaining"] -= 1
     if session["countdown_remaining"] > 0:
@@ -262,6 +269,8 @@ def poll_command():
         action_select_song(cmd.get("song_id"))
     elif action == "start":
         action_start()
+    elif action == "play_song":
+        action_play_song(cmd.get("song_id"))
     else:
         log_event("error", {"msg": "unknown command action", "action": action})
 

@@ -54,7 +54,8 @@ cd Joayong_dance
 
 ### 1-4. 곡선택 화면의 곡 목록 맞추기
 
-`gesture-ui/app/page.tsx` 상단 `SONGS`의 `id`·`title`을 `songs.json`과 **똑같이** 맞추세요. (아직 자동 동기화 안 됨)
+따로 할 일 없음 — 곡선택 화면이 `/api/songs`로 `obs-script/songs.json`을 직접 읽습니다.
+다른 위치의 `songs.json`을 쓰면 `gesture-ui/.env.local`에 `SONGS_FILE_PATH`를 지정하세요.
 
 ### 1-5. `runtime/command.json` 빈 파일 만들기
 
@@ -175,8 +176,8 @@ npm run dev
 ### B. 제스처
 
 - [ ] `idle` 씬에 웹캠 화면(좌우 반전) + 곡 버튼 표시
-- [ ] 버튼에 손 올려 약 1.8초 → 곡 선택, 시작 버튼으로 바뀜 (로그 `song_selected`)
-- [ ] 시작 버튼 dwell → 카운트다운 시작
+- [ ] 버튼에 손 올려 약 1.8초 → 곡 선택과 동시에 카운트다운 시작 (로그 `song_selected` → `countdown_start`)
+- [ ] 카운트다운·재생 중 버튼에 손이 닿아도 곡이 바뀌지 않음 (로그 `blocked`)
 - [ ] 버튼 근처에 서 있기만 할 때(손 안 올림) 오발동 없는지
 - [ ] 8초간 아무것도 안 하면 "운영자에게 말씀해주세요" 표시
 - [ ] gesture-ui 터미널 종료(Ctrl+C) 상태에서도 단축키 사이클(A) 정상

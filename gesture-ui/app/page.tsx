@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   ButtonRect,
   DEFAULT_GREEN_RANGE,
@@ -10,11 +10,7 @@ import {
   sampleForegroundRatio,
 } from "@/lib/gesture";
 
-// TODO: songs.json (obs-script와 공유) 내용과 맞춰서 채우거나, 별도 API로 fetch.
-const SONGS = [
-  { id: "1", title: "샘플 곡 1" },
-  { id: "2", title: "샘플 곡 2" },
-];
+type Song = { id: string; title: string };
 
 const GESTURE_TIMEOUT_MS = 8000;
 
@@ -56,25 +52,25 @@ function toPixelRect(btn: ButtonRect, w: number, h: number) {
   };
 }
 
-function songButtons(): ButtonRect[] {
-  return SONGS.map((song, i) => ({
+// 버튼을 화면 좌우 가장자리 두 열에 나눠 배치. 가운데는 참여자가 서는 자리라
+// 몸이 버튼을 가려 오발동하지 않도록 비워 둠 (손을 옆으로 뻗어 선택).
+const COLUMN_X = [0.03, 0.72];
+const BUTTON_W = 0.25;
+const AREA_TOP = 0.04;
+const AREA_HEIGHT = 0.92;
+
+function songButtons(songs: Song[]): ButtonRect[] {
+  const rows = Math.max(1, Math.ceil(songs.length / COLUMN_X.length));
+  const rowH = AREA_HEIGHT / rows;
+  return songs.map((song, i) => ({
     id: song.id,
     label: song.title,
-    x: 0.1,
-    y: 0.15 + i * 0.3,
-    w: 0.35,
-    h: 0.2,
+    x: COLUMN_X[i % COLUMN_X.length],
+    y: AREA_TOP + Math.floor(i / COLUMN_X.length) * rowH,
+    w: BUTTON_W,
+    h: rowH * 0.85,
   }));
 }
-
-const START_BUTTON: ButtonRect = {
-  id: "start",
-  label: "시작",
-  x: 0.325,
-  y: 0.4,
-  w: 0.35,
-  h: 0.2,
-};
 
 async function postCommand(action: string, songId?: string) {
   await fetch("/api/command", {
@@ -89,9 +85,7 @@ export default function GestureSelectPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trackersRef = useRef<Map<string, DwellTracker>>(new Map());
   const lastProgressAtRef = useRef<number>(Date.now());
-  const [mode, setMode] = useState<"songs" | "start">("songs");
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
+  const songsRef = useRef<Song[]>([]);
   const greenRangeRef = useRef<GreenRange>(DEFAULT_GREEN_RANGE);
   const calibrateRequestedRef = useRef(false);
   const noticeRef = useRef<{ text: string; until: number } | null>(null);
@@ -113,6 +107,19 @@ export default function GestureSelectPage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/songs")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!Array.isArray(data.songs)) throw new Error(data.error ?? "invalid songs response");
+        songsRef.current = data.songs;
+      })
+      .catch((err) => {
+        console.error("songs load failed", err);
+        noticeRef.current = { text: "곡 목록을 불러오지 못했습니다 (songs.json 확인)", until: Infinity };
+      });
   }, []);
 
   useEffect(() => {
@@ -164,8 +171,8 @@ export default function GestureSelectPage() {
 
       if (calibrateRequestedRef.current) {
         calibrateRequestedRef.current = false;
-        // 곡선택·시작 버튼 영역 전체를 기준으로 보정 (모드가 바뀌어도 같은 범위를 씀)
-        const allRects = [...songButtons(), START_BUTTON].map((b) => toPixelRect(b, w, h));
+        // 곡 버튼 영역 전체를 기준으로 보정
+        const allRects = songButtons(songsRef.current).map((b) => toPixelRect(b, w, h));
         const range = calibrateGreenRange(ctx, allRects);
         if (range) {
           greenRangeRef.current = range;
@@ -182,7 +189,7 @@ export default function GestureSelectPage() {
         }
       }
 
-      const buttons = modeRef.current === "songs" ? songButtons() : [START_BUTTON];
+      const buttons = songButtons(songsRef.current);
       let anyProgress = false;
 
       for (const btn of buttons) {
@@ -212,12 +219,8 @@ export default function GestureSelectPage() {
           // 생겨서 손을 떼지 않아도 즉시 재충전을 시작해버립니다. 손을 뗄 때까지
           // 잠그는 건 DwellTracker 내부의 armed 플래그가 담당합니다.
           lastProgressAtRef.current = now;
-          if (modeRef.current === "songs") {
-            postCommand("select_song", btn.id);
-            setMode("start");
-          } else {
-            postCommand("start");
-          }
+          // 선택 확정 = 곧바로 카운트다운→재생. 세션 진행 중 재선택은 obs-script가 막음.
+          postCommand("play_song", btn.id);
         }
       }
 

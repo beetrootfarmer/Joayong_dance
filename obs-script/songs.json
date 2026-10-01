@@ -1,14 +1,12 @@
 {
   "songs": [
-    {
-      "id": "1",
-      "title": "샘플 곡 1",
-      "video_path": "/Users/heji/Downloads/test_dance.MP4"
-    },
-    {
-      "id": "2",
-      "title": "샘플 곡 2",
-      "video_path": "C:/Joayong/videos/song2.mp4"
-    }
+    { "id": "1", "title": "ggez", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤추자조아용_ggez.mp4" },
+    { "id": "2", "title": "레몬탱", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰요조아용_레몬탱.mp4" },
+    { "id": "3", "title": "arabam", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_arabam.mp4" },
+    { "id": "4", "title": "love attack", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_love attack.mp4" },
+    { "id": "5", "title": "skibidi", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_skibidi.mp4" },
+    { "id": "6", "title": "sodapop", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_sodapop .mp4" },
+    { "id": "7", "title": "캐치캐치", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_캐치캐치.mp4" },
+    { "id": "8", "title": "프리티걸", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_프리티걸.mp4" }
   ]
 }
