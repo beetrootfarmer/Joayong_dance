@@ -33,6 +33,13 @@ CFG = {
     "gesture_timeout_seconds": 8,
 }
 
+# libobs의 OBS_ALIGN_CENTER(=0). C 매크로라 obspython 모듈에는 노출되지 않아 직접 정의
+ALIGN_CENTER = 0
+# enum obs_media_state의 PLAYING(=1). 노출돼 있으면 그 값을 씀
+MEDIA_STATE_PLAYING = getattr(obs, "OBS_MEDIA_STATE_PLAYING", 1)
+MEDIA_HOLD_INTERVAL_MS = 50
+RETURN_TO_IDLE_DELAY_MS = 50
+
 COMMAND_POLL_INTERVAL_MS = 200
 SCENE_SWITCH_GRACE_SECONDS = 1.5
 STATUS_TICK_INTERVAL_MS = 1000
@@ -140,15 +147,27 @@ def set_media_file(source_name, file_path):
     obs.obs_source_release(source)
 
 
+def hold_media_paused():
+    # 카운트다운 동안 영상을 첫 장면에 멈춰 둠 (countdown 상태에서만 50ms 주기로 실행).
+    # restart 직후 pause를 한 번 보내는 방식은 안 됨: restart가 미디어 스레드에서 나중에 처리되며
+    # pause를 풀어버리고, 곡 선택 시 파일 경로 변경만으로도 재생이 시작됨(2026-10-02 확인).
+    # 그래서 재생 중으로 보일 때마다 다시 멈춤 — 실제로 흘러가는 건 길어야 수십 ms.
+    source = obs.obs_get_source_by_name(CFG["source_media"])
+    if source is None:
+        return
+    if obs.obs_source_media_get_state(source) == MEDIA_STATE_PLAYING:
+        obs.obs_source_media_play_pause(source, True)
+    obs.obs_source_release(source)
+
+
 def cue_media_paused(source_name):
-    # 카운트다운 동안 영상 첫 장면을 멈춘 채로 보여줌. 미디어 명령은 소스의 미디어 스레드에서
-    # 순서대로 처리되므로 restart 직후 pause가 확실히 뒤따름 (재생되는 건 길어야 몇 프레임).
+    # 처음으로 되감고, 멈추는 건 hold_media_paused 타이머가 맡음
     source = obs.obs_get_source_by_name(source_name)
     if source is None:
         return
     obs.obs_source_media_restart(source)
-    obs.obs_source_media_play_pause(source, True)
     obs.obs_source_release(source)
+    obs.timer_add(hold_media_paused, MEDIA_HOLD_INTERVAL_MS)
 
 
 def play_media_from_start(source_name):
@@ -176,9 +195,18 @@ def center_source_in_scenes(source_name, scene_names):
         scene = obs.obs_scene_from_source(scene_source)
         item = obs.obs_scene_find_source(scene, source_name)
         if item is not None:
-            obs.obs_sceneitem_set_alignment(item, obs.OBS_ALIGN_CENTER)
+            obs.obs_sceneitem_set_alignment(item, ALIGN_CENTER)
             obs.obs_sceneitem_set_pos(item, pos)
         obs.obs_source_release(scene_source)
+
+
+def center_countdown():
+    # 화면 배치는 부가 기능 — 여기서 실패해도 세션 진행(상태 전이·씬 전환·재생)은 막지 않음.
+    # (2026-10-02: 상수 오류로 action_start 중간에 예외가 나서 상태가 countdown에 갇힌 적 있음)
+    try:
+        center_source_in_scenes(CFG["source_text_countdown"], (CFG["scene_idle"], CFG["scene_dance"]))
+    except Exception as e:
+        log_event("error", {"msg": "center countdown failed", "detail": repr(e)})
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +239,7 @@ def action_start():
     session["countdown_remaining"] = CFG["countdown_seconds"]
     # 운영 중 미디어 소스를 지웠다 다시 만들어도 종료 감지가 되도록 매 세션 다시 연결
     connect_media_ended()
-    center_source_in_scenes(CFG["source_text_countdown"], (CFG["scene_idle"], CFG["scene_dance"]))
+    center_countdown()
     cue_media_paused(CFG["source_media"])
     # 첫 숫자(3)는 바로 표시 — 이후 1초마다 countdown_tick이 2, 1로 바꿈
     set_text(CFG["source_text_countdown"], str(session["countdown_remaining"]))
@@ -235,6 +263,7 @@ def countdown_tick():
 
     set_text(CFG["source_text_countdown"], "")
     obs.timer_remove(countdown_tick)
+    obs.timer_remove(hold_media_paused)
     session["state"] = STATE_PLAYING
     session["song_started_at"] = time.time()
     play_media_from_start(CFG["source_media"])
@@ -256,6 +285,7 @@ def action_force_idle(switch_scene=True):
     set_text(CFG["source_text_status"], "")
     try:
         obs.timer_remove(countdown_tick)
+        obs.timer_remove(hold_media_paused)
         obs.timer_remove(return_to_idle_once)
     except Exception:
         pass
@@ -269,10 +299,11 @@ def action_reset_session():
 def on_media_ended(calldata):
     if session["state"] != STATE_PLAYING:
         return
+    # 종료 화면 없이 바로 대기 씬으로. 이 콜백은 미디어 스레드에서 오므로
+    # 씬 전환은 타이머로 넘겨 그래픽 스레드에서 처리 (지연은 최소값)
     session["state"] = STATE_ENDED
-    set_text(CFG["source_text_status"], "종료")
     log_event("play_end", {"song_id": session["song_id"]})
-    obs.timer_add(return_to_idle_once, 3000)
+    obs.timer_add(return_to_idle_once, RETURN_TO_IDLE_DELAY_MS)
 
 
 def return_to_idle_once():
@@ -442,13 +473,14 @@ def script_load(settings):
     set_text(CFG["source_text_status"], "")
     obs.timer_add(poll_command, COMMAND_POLL_INTERVAL_MS)
     connect_media_ended()
-    center_source_in_scenes(CFG["source_text_countdown"], (CFG["scene_idle"], CFG["scene_dance"]))
+    center_countdown()
 
 
 def script_unload():
     obs.timer_remove(poll_command)
     try:
         obs.timer_remove(countdown_tick)
+        obs.timer_remove(hold_media_paused)
         obs.timer_remove(return_to_idle_once)
     except Exception:
         pass
