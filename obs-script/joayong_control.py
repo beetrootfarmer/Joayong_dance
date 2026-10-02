@@ -34,6 +34,7 @@ CFG = {
 }
 
 COMMAND_POLL_INTERVAL_MS = 200
+SCENE_SWITCH_GRACE_SECONDS = 1.5
 STATUS_TICK_INTERVAL_MS = 1000
 
 STATE_IDLE = "idle"
@@ -53,6 +54,8 @@ session = {
     "countdown_remaining": 0,
     # None = 스크립트 (재)로드 직후 아직 기준을 잡지 않음 (poll_command 참고)
     "last_command_seq": None,
+    # 스크립트가 마지막으로 씬을 바꾼 시각 (check_manual_scene_exit 참고)
+    "scene_switched_at": 0.0,
 }
 
 songs_by_id = {}
@@ -109,6 +112,7 @@ def set_scene(scene_name):
     if scene_source is None:
         log_event("error", {"msg": "scene not found", "scene": scene_name})
         return
+    session["scene_switched_at"] = time.time()
     obs.obs_frontend_set_current_scene(scene_source)
     obs.obs_source_release(scene_source)
 
@@ -136,12 +140,45 @@ def set_media_file(source_name, file_path):
     obs.obs_source_release(source)
 
 
-def restart_media(source_name):
+def cue_media_paused(source_name):
+    # 카운트다운 동안 영상 첫 장면을 멈춘 채로 보여줌. 미디어 명령은 소스의 미디어 스레드에서
+    # 순서대로 처리되므로 restart 직후 pause가 확실히 뒤따름 (재생되는 건 길어야 몇 프레임).
     source = obs.obs_get_source_by_name(source_name)
     if source is None:
         return
     obs.obs_source_media_restart(source)
+    obs.obs_source_media_play_pause(source, True)
     obs.obs_source_release(source)
+
+
+def play_media_from_start(source_name):
+    # 일시정지 상태였든 아니든 처음부터 재생 (pause 해제까지 명시)
+    source = obs.obs_get_source_by_name(source_name)
+    if source is None:
+        return
+    obs.obs_source_media_restart(source)
+    obs.obs_source_media_play_pause(source, False)
+    obs.obs_source_release(source)
+
+
+def center_source_in_scenes(source_name, scene_names):
+    # 기준점을 소스 가운데로 두고 캔버스 정중앙에 배치 — 숫자 폭이 달라져도(3/2/1) 가운데 유지.
+    # 크기(스케일)는 운영자가 정한 값을 그대로 둠.
+    ovi = obs.obs_video_info()
+    obs.obs_get_video_info(ovi)
+    pos = obs.vec2()
+    pos.x = ovi.base_width / 2
+    pos.y = ovi.base_height / 2
+    for scene_name in scene_names:
+        scene_source = obs.obs_get_source_by_name(scene_name)
+        if scene_source is None:
+            continue
+        scene = obs.obs_scene_from_source(scene_source)
+        item = obs.obs_scene_find_source(scene, source_name)
+        if item is not None:
+            obs.obs_sceneitem_set_alignment(item, obs.OBS_ALIGN_CENTER)
+            obs.obs_sceneitem_set_pos(item, pos)
+        obs.obs_source_release(scene_source)
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +209,12 @@ def action_start():
 
     session["state"] = STATE_COUNTDOWN
     session["countdown_remaining"] = CFG["countdown_seconds"]
+    # 운영 중 미디어 소스를 지웠다 다시 만들어도 종료 감지가 되도록 매 세션 다시 연결
+    connect_media_ended()
+    center_source_in_scenes(CFG["source_text_countdown"], (CFG["scene_idle"], CFG["scene_dance"]))
+    cue_media_paused(CFG["source_media"])
+    # 첫 숫자(3)는 바로 표시 — 이후 1초마다 countdown_tick이 2, 1로 바꿈
+    set_text(CFG["source_text_countdown"], str(session["countdown_remaining"]))
     set_scene(CFG["scene_dance"])
     obs.timer_add(countdown_tick, 1000)
     log_event("countdown_start", {"song_id": session["song_id"]})
@@ -194,7 +237,7 @@ def countdown_tick():
     obs.timer_remove(countdown_tick)
     session["state"] = STATE_PLAYING
     session["song_started_at"] = time.time()
-    restart_media(CFG["source_media"])
+    play_media_from_start(CFG["source_media"])
     log_event("play_start", {"song_id": session["song_id"]})
 
 
@@ -203,15 +246,17 @@ def action_force_stop():
     log_event("force_stop", {})
 
 
-def action_force_idle():
+def action_force_idle(switch_scene=True):
     session["state"] = STATE_IDLE
     session["song_id"] = None
-    set_scene(CFG["scene_idle"])
+    if switch_scene:
+        set_scene(CFG["scene_idle"])
     set_text(CFG["source_text_title"], "")
     set_text(CFG["source_text_countdown"], "")
     set_text(CFG["source_text_status"], "")
     try:
         obs.timer_remove(countdown_tick)
+        obs.timer_remove(return_to_idle_once)
     except Exception:
         pass
 
@@ -235,6 +280,41 @@ def return_to_idle_once():
     action_reset_session()
 
 
+def connect_media_ended():
+    # 시그널은 소스 객체에 붙으므로, 같은 이름으로 다시 만든 소스에는 연결이 없음.
+    # 끊고 다시 연결해서 중복 없이 항상 현재 소스에 붙어 있게 함.
+    media_source = obs.obs_get_source_by_name(CFG["source_media"])
+    if media_source is None:
+        return
+    sh = obs.obs_source_get_signal_handler(media_source)
+    obs.signal_handler_disconnect(sh, "media_ended", on_media_ended)
+    obs.signal_handler_connect(sh, "media_ended", on_media_ended)
+    obs.obs_source_release(media_source)
+
+
+def check_manual_scene_exit():
+    # 카운트다운·재생 중에 운영자가 OBS에서 씬을 직접 바꾸면 영상 종료 신호가 오지 않아
+    # 세션이 '재생 중'에 갇히고 이후 곡 선택이 전부 막힘 → 댄스 씬을 벗어나면 대기로 정리.
+    #
+    # 주의: obs_frontend_add_event_callback(SCENE_CHANGED)로 받으면 안 됨. 타이머(그래픽 스레드)가
+    # GIL을 쥔 채 set_scene으로 UI 스레드를 기다리는 동안, UI 스레드가 그 콜백을 부르려고 GIL을
+    # 기다려서 OBS 전체가 멈춤(2026-10-02 실제 발생). 그래서 poll_command 타이머 안에서 직접 확인.
+    if session["state"] not in (STATE_COUNTDOWN, STATE_PLAYING, STATE_ENDED):
+        return
+    # 스크립트가 방금 씬을 바꿨다면 UI에 반영되기 전일 수 있으니 잠시 기다림
+    if time.time() - session["scene_switched_at"] < SCENE_SWITCH_GRACE_SECONDS:
+        return
+    scene = obs.obs_frontend_get_current_scene()
+    if scene is None:
+        return
+    name = obs.obs_source_get_name(scene)
+    obs.obs_source_release(scene)
+    if name != CFG["scene_dance"]:
+        log_event("manual_scene_exit", {"state": session["state"], "scene": name, "song_id": session["song_id"]})
+        # 운영자가 고른 씬은 그대로 두고 상태만 정리
+        action_force_idle(switch_scene=False)
+
+
 # ---------------------------------------------------------------------------
 # command.json 폴링 — gesture-ui(Next.js)가 남긴 이벤트를 단축키와 동일하게 처리
 # ---------------------------------------------------------------------------
@@ -252,6 +332,8 @@ def read_command():
 
 
 def poll_command():
+    check_manual_scene_exit()
+
     cmd = read_command()
     seq = cmd.get("seq", -1) if cmd else -1
 
@@ -359,12 +441,8 @@ def script_load(settings):
     # 이전 실행에서 텍스트 소스에 남은 문구(예: 제거된 "동의 대기/완료") 정리
     set_text(CFG["source_text_status"], "")
     obs.timer_add(poll_command, COMMAND_POLL_INTERVAL_MS)
-
-    media_source = obs.obs_get_source_by_name(CFG["source_media"])
-    if media_source is not None:
-        sh = obs.obs_source_get_signal_handler(media_source)
-        obs.signal_handler_connect(sh, "media_ended", on_media_ended)
-        obs.obs_source_release(media_source)
+    connect_media_ended()
+    center_source_in_scenes(CFG["source_text_countdown"], (CFG["scene_idle"], CFG["scene_dance"]))
 
 
 def script_unload():

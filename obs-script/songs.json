@@ -1,12 +1,13 @@
 {
   "songs": [
-    { "id": "1", "title": "ggez", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤추자조아용_ggez.mp4" },
-    { "id": "2", "title": "레몬탱", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰요조아용_레몬탱.mp4" },
-    { "id": "3", "title": "arabam", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_arabam.mp4" },
-    { "id": "4", "title": "love attack", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_love attack.mp4" },
-    { "id": "5", "title": "skibidi", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_skibidi.mp4" },
-    { "id": "6", "title": "sodapop", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_sodapop .mp4" },
-    { "id": "7", "title": "캐치캐치", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_캐치캐치.mp4" },
-    { "id": "8", "title": "프리티걸", "video_path": "C:/Users/user/Desktop/춤춰용조아용/춤춰용조아용_프리티걸.mp4" }
+    { "id": "1", "title": "ggez", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_ggez.mp4", "thumbnail": "images/thumbnails/1. GGEZ 이미지.png" },
+    { "id": "2", "title": "레몬탱", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용 조아용_레몬탱.mp4", "thumbnail": "images/thumbnails/2. 레몬탱 이미지.png" },
+    { "id": "3", "title": "arabam", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_arabam.mp4", "thumbnail": "images/thumbnails/3. barabam 이미지.png" },
+    { "id": "4", "title": "love attack", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_love attack.mp4", "thumbnail": "images/thumbnails/4. love attack 이미지.png" },
+    { "id": "5", "title": "skibidi", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_skibidi.mp4", "thumbnail": "images/thumbnails/5. skibidi 이미지.png" },
+    { "id": "6", "title": "sodapop", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_sodapop.mp4", "thumbnail": "images/thumbnails/6. sodapop 이미지.png" },
+    { "id": "7", "title": "캐치캐치", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_캐치캐치.mp4", "thumbnail": "images/thumbnails/7. 캐치캐치 이미지.png" },
+    { "id": "8", "title": "프리티걸", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_프리티걸.mp4", "thumbnail": "images/thumbnails/8. 프리티걸 이미지.png" },
+    { "id": "9", "title": "레모네이드", "video_path": "C:/Users/user/Desktop/춤춰용조아용/dance/춤춰용조아용_레모네이드.mp4", "thumbnail": "images/thumbnails/9. 레모네이드 이미지.png" }
   ]
 }

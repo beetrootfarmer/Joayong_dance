@@ -1,6 +1,7 @@
-// 곡선택/시작 버튼의 dwell(호버 유지) 판정 로직.
-// 1차 구현은 픽셀 카운팅(그린스크린 HSV 판정). 팀에 기존 검증된 MediaPipe 구현이 있다면
-// sampleForegroundRatio()만 교체하면 됩니다 (호출부는 그대로 재사용 가능).
+// 곡선택 화면의 dwell(호버 유지) 판정 로직과 그린스크린 HSV 판정.
+// 버튼 위 여부는 MediaPipe 손 커서(lib/handTracker.ts)로 판정하고, DwellTracker에는 커서가
+// 버튼 위에 있는 정도(0~1, 프레임 간 평활)를 넣는다. 그린 판정은 참여자 실루엣 표시·보정에 사용.
+// sampleForegroundRatio()는 이전 픽셀 카운팅 방식(버튼 가림 비율)용으로 남겨 둠.
 
 export type ButtonRect = {
   id: string;
@@ -123,6 +124,16 @@ export function calibrateGreenRange(
   };
 }
 
+/**
+ * 실루엣 표시용: 그린 범위에 드는 픽셀을 투명하게 만든다 (in-place).
+ */
+export function keyOutGreen(image: ImageData, range: GreenRange = DEFAULT_GREEN_RANGE): void {
+  const { data } = image;
+  for (let i = 0; i < data.length; i += 4) {
+    if (isGreenPixel(data[i], data[i + 1], data[i + 2], range)) data[i + 3] = 0;
+  }
+}
+
 export class DwellTracker {
   private progress = 0; // 0~1
   private charging = false;
@@ -130,6 +141,8 @@ export class DwellTracker {
   // 완료 직후에는 잠금. 손을 완전히 뗐다가(EXIT_THRESHOLD 아래) 다시 올려야
   // 재시작 가능 — 손을 계속 얹고 있다고 같은 버튼이 반복 완료되는 것을 막음.
   private armed = true;
+
+  constructor(private readonly dwellMs: number = DWELL_MS) {}
 
   tick(ratio: number, now: number): { progress: number; completed: boolean } {
     if (!this.armed) {
@@ -146,7 +159,7 @@ export class DwellTracker {
     }
 
     if (this.charging) {
-      this.progress = Math.min(1, (now - this.startedAt) / DWELL_MS);
+      this.progress = Math.min(1, (now - this.startedAt) / this.dwellMs);
     }
 
     const completed = this.progress >= 1;
