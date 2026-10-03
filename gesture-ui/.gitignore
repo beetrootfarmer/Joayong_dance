@@ -2,3 +2,5 @@ node_modules/
 .next/
 .env.local
 *.tsbuildinfo
+# predev/prebuild에서 node_modules로부터 복사되는 MediaPipe 런타임
+public/mediapipe/

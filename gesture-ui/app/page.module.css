@@ -1,0 +1,259 @@
+/* 곡선택 화면. 1280×720 고정 무대를 창 크기에 맞춰 확대/축소(page.tsx의 fitStage).
+   좌표는 시안(조아용 곡선택 화면) 비율 기준. */
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* 임시 배경 — 경기장 이미지가 준비되면 background-image로 교체 */
+  background: #9fd6ff;
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+.stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1280px;
+  height: 720px;
+  transform-origin: 0 0;
+}
+
+.panel {
+  position: absolute;
+  left: 64px;
+  top: 162px;
+  width: 1152px;
+  height: 500px;
+  box-sizing: border-box;
+  background: #3eaaf8;
+  border: 3px solid #1576d1;
+  border-radius: 6px;
+}
+
+.tab {
+  position: absolute;
+  left: 480px;
+  top: 108px;
+  width: 320px;
+  height: 96px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #3eaaf8;
+  border: 3px solid #1576d1;
+  border-radius: 48px;
+  color: white;
+  font-size: 40px;
+  font-weight: 800;
+  z-index: 1;
+}
+
+.cards {
+  position: absolute;
+  left: 122px;
+  top: 95px;
+  display: flex;
+  gap: 36px;
+}
+
+.card,
+.cardEmpty {
+  position: relative;
+  width: 200px;
+  height: 330px;
+  flex: none;
+}
+
+.cardEmpty {
+  visibility: hidden;
+}
+
+.card {
+  overflow: hidden;
+  border-radius: 6px;
+  background: #1b4f80;
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+.card[data-hover="1"] {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 6px #ffd93b;
+}
+
+.thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.label {
+  position: absolute;
+  left: 50%;
+  top: 36px;
+  transform: translateX(-50%);
+  width: 78%;
+  padding: 10px 0;
+  box-sizing: border-box;
+  background: #dcdcdc;
+  border: 2px solid #b5b5b5;
+  border-radius: 4px;
+  color: #333;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 1;
+}
+
+/* dwell 진행률: 카드 아래에서부터 차오름 (--progress는 page.tsx가 매 프레임 설정) */
+.progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--progress, 0) * 100%);
+  background: rgba(255, 217, 59, 0.45);
+}
+
+.selected {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(21, 118, 209, 0.7);
+  color: white;
+  font-size: 30px;
+  font-weight: 800;
+  z-index: 2;
+}
+
+/* 화살표: 손으로 맞히기 쉽게 판정 영역(.arrow)은 삼각형보다 크게 */
+.arrow {
+  position: absolute;
+  top: 95px;
+  width: 100px;
+  height: 330px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arrowPrev {
+  left: 10px;
+}
+
+.arrowNext {
+  right: 10px;
+}
+
+.triangle {
+  width: 70px;
+  height: 110px;
+  background: linear-gradient(
+    to top,
+    #ffd93b calc(var(--progress, 0) * 100%),
+    #d6d6d6 calc(var(--progress, 0) * 100%)
+  );
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+  transition: transform 120ms ease-out;
+}
+
+.arrowPrev .triangle {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+.arrowNext .triangle {
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.arrow[data-hover="1"] .triangle {
+  transform: scale(1.15);
+}
+
+.dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 440px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.dot,
+.dotActive {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.dotActive {
+  background: white;
+}
+
+.hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 458px;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 실루엣 + 손 커서 */
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 1280px;
+  height: 720px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.help {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 24px;
+  background: rgba(0, 0, 0, 0.6);
+  color: yellow;
+  font-size: 32px;
+  z-index: 4;
+}
+
+.notice {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 22px;
+  z-index: 4;
+}
+
+/* 카메라·손 인식 상태 (운영자용, 좌하단 작은 글씨) */
+.status {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  max-width: 900px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffe36b;
+  font-size: 16px;
+  border-radius: 4px;
+  z-index: 4;
+}

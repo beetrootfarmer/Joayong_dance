@@ -23,11 +23,11 @@ OBS Browser Source라면 소스 우클릭 → 상호작용 창에서 입력합�
 - `lib/gesture.ts` — 픽셀 카운팅(그린스크린 HSV 판정) 기반 dwell 로직. 판정 방식은
   [`docs/gesture-detection.md`](../docs/gesture-detection.md) 참고. **기존에 검증된 MediaPipe 구현이 있다면
   `sampleForegroundRatio()`만 교체**하면 나머지(히스테리시스, 타임아웃, 커맨드 전송)는 그대로 재사용 가능
-- `app/api/command/route.ts` — 선택 확정 시 `../runtime/command.json`에 1회 기록 (obs-script가 폴링)
+- `app/api/command/route.ts` — 선택 확정 시 `../runtime/command.json`에 `play_song` 1회 기록 (obs-script가 폴링 → 곧바로 카운트다운·재생)
+- `app/api/songs/route.ts` — `../obs-script/songs.json`의 `id`·`title`을 내려줌 (경로는 `SONGS_FILE_PATH`로 변경 가능)
 
 ## 아직 안 된 것 (다음 단계)
 
-- `SONGS` 하드코딩 목록을 `obs-script/songs.json`과 동기화 (지금은 수동 유지)
 - 버튼 좌표(`x/y/w/h`)는 임시값 — 현장 화면 크기·거리 기준으로 재조정 필요
 - OBS Browser Source에서 `getUserMedia` 동작 여부 미검증 (기술검증 단계 §7-1)
 - 다인원 프레임 처리(대표 1인 안내)는 UI가 아니라 운영 절차(바닥 표시)로 해결하는 것을 전제로 함

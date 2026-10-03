@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { action, song_id } = body as { action: string; song_id?: string };
 
-  if (action !== "select_song" && action !== "start") {
+  if (action !== "select_song" && action !== "start" && action !== "play_song") {
     return NextResponse.json({ error: "unknown action" }, { status: 400 });
   }
 
